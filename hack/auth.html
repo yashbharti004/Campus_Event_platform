@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Campus Event Platform</title>
+
+  <!-- Firebase Authentication Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyABW8gLoXFRYJ_msoxlPDae86rpaBZd5BA",
+      authDomain: "campuseventplatform.firebaseapp.com",
+      projectId: "campuseventplatform",
+      storageBucket: "campuseventplatform.appspot.com",
+      messagingSenderId: "203066954515",
+      appId: "1:203066954515:web:1915f1ab8eb4dd7c7800e6",
+      measurementId: "G-YXCLCZTTZ4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Google Sign-In function
+    window.googleLogin = function() {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          console.log("✅ User logged in:", user.displayName, user.email);
+          alert(`Welcome ${user.displayName}!`);
+          window.location.href = "./index.html"; // redirect after login
+        })
+        .catch((error) => {
+          console.error("❌ Error:", error);
+          alert(error.message);
+        });
+    };
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      display: flex;
+      height: 100vh;
+      background-color: #e6f0ff;
+    }
+
+    .container {
+      display: flex;
+      width: 80%;
+      margin: auto;
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .left {
+      flex: 1;
+      padding: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .left h2 {
+      margin-bottom: 20px;
+      color: #1a1a1a;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background-color: #0066cc;
+    }
+
+    .socials {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .socials p {
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .socials button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 50%;
+      width: 45px;
+      height: 45px;
+      margin: 0 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .socials button:hover {
+      transform: scale(1.1);
+      border-color: #007bff;
+    }
+
+    .right {
+      flex: 1;
+      background: linear-gradient(135deg, #007bff, #66a3ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .right img {
+      width: 70%;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        width: 95%;
+      }
+      .right {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="left">
+      <h2>Sign in to your account</h2>
+      <input type="email" placeholder="Email" />
+      <input type="password" placeholder="Password" />
+      <button class="btn">Sign In</button>
+
+      <div class="socials">
+        <p>or continue with</p>
+        <button onclick="googleLogin()">
+          <img src="https://img.icons8.com/color/48/google-logo.png" width="25" alt="Google Login" />
+        </button>
+        <button>
+          <img src="https://img.icons8.com/ios-filled/50/facebook.png" width="22" alt="Facebook Login" />
+        </button>
+      </div>
+    </div>
+
+    <div class="right">
+      <img src="https://cdn-icons-png.flaticon.com/512/2920/2920349.png" />
+    </div>
+  </div>
+</body>
+</html>
