@@ -5,6 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login - Campus Event Platform</title>
 
+  <!-- Firebase Authentication Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyABW8gLoXFRYJ_msoxlPDae86rpaBZd5BA",
+      authDomain: "campuseventplatform.firebaseapp.com",
+      projectId: "campuseventplatform",
+      storageBucket: "campuseventplatform.appspot.com",
+      messagingSenderId: "203066954515",
+      appId: "1:203066954515:web:1915f1ab8eb4dd7c7800e6",
+      measurementId: "G-YXCLCZTTZ4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Google Sign-In function
+    window.googleLogin = function() {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          console.log("✅ User logged in:", user.displayName, user.email);
+          alert(`Welcome ${user.displayName}!`);
+          window.location.href = "home.html"; // redirect after login
+        })
+        .catch((error) => {
+          console.error("❌ Error:", error);
+          alert(error.message);
+        });
+    };
+  </script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -133,14 +168,11 @@
 
       <div class="socials">
         <p>or continue with</p>
-        <!-- Google Login Button -->
-        <button onclick="openGoogleLogin()">
-          <img src="https://img.icons8.com/color/48/google-logo.png" width="25" />
+        <button onclick="googleLogin()">
+          <img src="https://img.icons8.com/color/48/google-logo.png" width="25" alt="Google Login" />
         </button>
-
-        <!-- Facebook Button -->
         <button>
-          <img src="https://img.icons8.com/ios-filled/50/facebook.png" width="22" />
+          <img src="https://img.icons8.com/ios-filled/50/facebook.png" width="22" alt="Facebook Login" />
         </button>
       </div>
     </div>
@@ -149,12 +181,5 @@
       <img src="https://cdn3d.iconscout.com/3d/premium/thumb/login-3d-illustration-download-in-png-blend-fbx-gltf-file-formats--user-password-secure-pack-security-illustrations-4134652.png" alt="Login illustration" />
     </div>
   </div>
-
-  <script>
-    function openGoogleLogin() {
-      // Open Google Sign-In Page
-      window.open("https://accounts.google.com/", "_blank");
-    }
-  </script>
 </body>
 </html>
