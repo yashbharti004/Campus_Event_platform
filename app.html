@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Event Hub</title>
+
+  <!-- Firebase Authentication Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyABW8gLoXFRYJ_msoxlPDae86rpaBZd5BA",
+      authDomain: "campuseventplatform.firebaseapp.com",
+      projectId: "campuseventplatform",
+      storageBucket: "campuseventplatform.appspot.com",
+      messagingSenderId: "203066954515",
+      appId: "1:203066954515:web:1915f1ab8eb4dd7c7800e6",
+      measurementId: "G-YXCLCZTTZ4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Google Sign-In function
+    window.googleLogin = function() {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          console.log("✅ User logged in:", user.displayName, user.email);
+          
+          // Determine user role based on email domain
+          let role = 'student'; // default role
+          if (user.email.includes('faculty')) {
+            role = 'faculty';
+          } else if (user.email.includes('admin')) {
+            role = 'admin';
+          }
+          
+          // Store user info and role
+          localStorage.setItem('currentUser', JSON.stringify({
+            name: user.displayName,
+            email: user.email,
+            role: role
+          }));
+          
+          showToast(`Welcome ${user.displayName}!`, 'success');
+          setTimeout(() => {
+            showDashboard(role);
+          }, 1500);
+        })
+        .catch((error) => {
+          console.error("❌ Error:", error);
+          showToast(error.message, 'error');
+        });
+    };
+
+    // Logout function
+    window.logout = function() {
+      signOut(auth)
+        .then(() => {
+          localStorage.removeItem('currentUser');
+          showToast('Logged out successfully', 'success');
+          showLoginPage();
+        })
+        .catch((error) => {
+          console.error("❌ Error:", error);
+          showToast(error.message, 'error');
+        });
+    };
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      background-color: #e6f0ff;
+    }
+
+    /* Login Page Styles */
+    .login-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      width: 80%;
+      margin: auto;
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .left {
+      flex: 1;
+      padding: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .left h2 {
+      margin-bottom: 20px;
+      color: #1a1a1a;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background-color: #0066cc;
+    }
+
+    .socials {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .socials p {
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .socials button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 50%;
+      width: 45px;
+      height: 45px;
+      margin: 0 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .socials button:hover {
+      transform: scale(1.1);
+      border-color: #007bff;
+    }
+
+    .right {
+      flex: 1;
+      background: linear-gradient(135deg, #007bff, #66a3ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .right img {
+      width: 70%;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        width: 95%;
+      }
+      .right {
+        display: none;
+      }
+    }
+
+    /* Dashboard Styles */
+    .dashboard-container {
+      display: none;
+    }
+
+    /* Toast Styles */
+    .toast {
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      color: white;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      max-width: 350px;
+    }
+
+    .toast-success {
+      background-color: #10b981;
+    }
+
+    .toast-error {
+      background-color: #ef4444;
+    }
+
+    .toast-info {
+      background-color: #3b82f6;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Login Page -->
+  <div id="login-page" class="login-container">
+    <div class="container">
+      <div class="left">
+        <h2>Sign in to your account</h2>
+        <input type="email" placeholder="Email" />
+        <input type="password" placeholder="Password" />
+        <button class="btn">Sign In</button>
+
+        <div class="socials">
+          <p>or continue with</p>
+          <button onclick="googleLogin()">
+            <img src="https://img.icons8.com/color/48/google-logo.png" width="25" alt="Google Login" />
+          </button>
+          <button>
+            <img src="https://img.icons8.com/ios-filled/50/facebook.png" width="22" alt="Facebook Login" />
+          </button>
+        </div>
+      </div>
+
+      <div class="right">
+        <img src="https://cdn-icons-png.flaticon.com/512/2920/2920349.png" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="dashboard-container">
+    <div id="app-container"></div>
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[100]"></div>
+  </div>
+
+  <script>
+    // Mock data for the application
+    const mockData = {
+      events: [
+        {
+          id: 1,
+          title: "Campus Tech Fest 2023",
+          date: "2023-11-15",
+          time: "10:00 AM",
+          location: "Main Auditorium",
+          description: "Annual technology festival showcasing student projects and innovations.",
+          category: "Technology",
+          organizer: "Tech Club",
+          capacity: 200,
+          registered: 150,
+          image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+        },
+        {
+          id: 2,
+          title: "Career Fair 2023",
+          date: "2023-11-20",
+          time: "9:00 AM - 4:00 PM",
+          location: "Student Union Building",
+          description: "Connect with top employers and explore internship and job opportunities.",
+          category: "Career",
+          organizer: "Career Services",
+          capacity: 500,
+          registered: 320,
+          image: "https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+        },
+        {
+          id: 3,
+          title: "Music Concert: Fall Edition",
+          date: "2023-11-25",
+          time: "7:00 PM",
+          location: "Open Air Theater",
+          description: "An evening of music featuring student bands and special guests.",
+          category: "Music",
+          organizer: "Music Society",
+          capacity: 300,
+          registered: 280,
+          image: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+        },
+        {
+          id: 4,
+          title: "AI & Machine Learning Workshop",
+          date: "2023-12-05",
+          time: "2:00 PM - 5:00 PM",
+          location: "Computer Lab 3B",
+          description: "Hands-on workshop on AI and ML fundamentals with practical examples.",
+          category: "Workshop",
+          organizer: "AI Research Group",
+          capacity: 50,
+          registered: 45,
+          image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+        },
+        {
+          id: 5,
+          title: "Basketball Tournament Finals",
+          date: "2023-11-18",
+          time: "6:00 PM",
+          location: "University Gymnasium",
+          description: "Championship game of the inter-department basketball tournament.",
+          category: "Sports",
+          organizer: "Athletics Department",
+          capacity: 800,
+          registered: 650,
+          image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1490&q=80"
+        },
+        {
+          id: 6,
+          title: "Sustainable Campus Initiative",
+          date: "2023-12-10",
+          time: "11:00 AM - 2:00 PM",
+          location: "Central Plaza",
+          description: "Learn about sustainability efforts and how to get involved.",
+          category: "Environment",
+          organizer: "Green Campus Club",
+          capacity: 100,
+          registered: 75,
+          image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1474&q=80"
+        }
+      ],
+      users: {
+        student: {
+          name: "Student User",
+          email: "student@campus.edu",
+          role: "student",
+          registeredEvents: [1, 3, 5]
+        },
+        faculty: {
+          name: "Faculty User",
+          email: "faculty@campus.edu",
+          role: "faculty",
+          organizedEvents: [4]
+        },
+        admin: {
+          name: "Admin User",
+          email: "admin@campus.edu",
+          role: "admin"
+        }
+      }
+    };
+
+    // Utility functions
+    const utils = {
+      formatDate: (dateString) => {
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+      },
+      
+      showLoading: () => {
+        document.getElementById('app-container').innerHTML = `
+          <div class="flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        `;
+      },
+      
+      hideLoading: () => {
+        // Loading will be replaced by actual content
+      },
+      
+      debounce: (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+    };
+
+    // Components
+    const components = {
+      // Header component
+      header: (user) => {
+        return `
+          <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                  <h1 class="text-2xl font-bold text-blue-600">Campus Event Hub</h1>
+                  <nav class="hidden md:ml-6 md:flex space-x-4">
+                    <a href="#" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium" data-nav="events">Events</a>
+                    <a href="#" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium" data-nav="my-events">My Events</a>
+                    ${user.role === 'faculty' || user.role === 'admin' ? 
+                      '<a href="#" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium" data-nav="create-event">Create Event</a>' : ''}
+                    ${user.role === 'admin' ? 
+                      '<a href="#" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium" data-nav="admin">Admin</a>' : ''}
+                  </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                      ${user.name.charAt(0)}
+                    </div>
+                    <span class="text-sm font-medium">${user.name}</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      ${user.role}
+                    </span>
+                  </div>
+                  <button onclick="logout()" class="bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          </header>
+        `;
+      },
+      
+      // Event card component
+      eventCard: (event, user, isRegistered = false) => {
+        const registeredCount = mockData.events.filter(e => 
+          user.registeredEvents && user.registeredEvents.includes(e.id)
+        ).length;
+        
+        return `
+          <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+            <div class="h-48 bg-cover bg-center" style="background-image: url('${event.image}')"></div>
+            <div class="p-6">
+              <div class="flex justify-between items-start">
+                <h3 class="text-xl font-bold text-gray-900">${event.title}</h3>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${isRegistered ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                  ${isRegistered ? 'Registered' : event.category}
+                </span>
+              </div>
+              <p class="mt-2 text-gray-600">${event.description}</p>
+              <div class="mt-4 flex items-center text-sm text-gray-500">
+                <i data-lucide="calendar" class="w-4 h-4 mr-1"></i>
+                <span>${utils.formatDate(event.date)} • ${event.time}</span>
+              </div>
+              <div class="mt-1 flex items-center text-sm text-gray-500">
+                <i data-lucide="map-pin" class="w-4 h-4 mr-1"></i>
+                <span>${event.location}</span>
+              </div>
+              <div class="mt-4 flex justify-between items-center">
+                <span class="text-sm text-gray-500">By ${event.organizer}</span>
+                <div class="flex items-center">
+                  <i data-lucide="users" class="w-4 h-4 mr-1 text-gray-400"></i>
+                  <span class="text-sm text-gray-500">${event.registered}/${event.capacity}</span>
+                </div>
+              </div>
+              <div class="mt-4">
+                ${isRegistered ? 
+                  `<button class="w-full bg-red-100 hover:bg-red-200 text-red-700 py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center" onclick="unregisterEvent(${event.id})">
+                    <i data-lucide="x-circle" class="w-4 h-4 mr-2"></i>
+                    Unregister
+                  </button>` :
+                  `<button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center" onclick="registerEvent(${event.id})" ${event.registered >= event.capacity ? 'disabled' : ''}>
+                    <i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i>
+                    ${event.registered >= event.capacity ? 'Event Full' : 'Register'}
+                  </button>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
+      },
+      
+      // Event list component
+      eventList: (events, user, title = "All Events") => {
+        const registeredEvents = user.registeredEvents || [];
+        
+        return `
+          <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="mb-6 flex justify-between items-center">
+              <h2 class="text-2xl font-bold text-gray-900">${title}</h2>
+              <div class="flex space-x-2">
+                <select id="category-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                  <option value="all">All Categories</option>
+                  <option value="Technology">Technology</option>
+                  <option value="Career">Career</option>
+                  <option value="Music">Music</option>
+                  <option value="Workshop">Workshop</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Environment">Environment</option>
+                </select>
+                <input type="text" id="search-events" placeholder="Search events..." class="block w-56 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${events.map(event => {
+                const isRegistered = registeredEvents.includes(event.id);
+                return components.eventCard(event, user, isRegistered);
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+    };
+
+    // Student-specific functions
+    const student = {
+      // View all events
+      viewEvents: (user) => {
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = components.header(user) + components.eventList(mockData.events, user);
+        
+        // Initialize event filtering
+        student.initEventFiltering(user);
+        
+        // Initialize icons
+        lucide.createIcons();
+      },
+      
+      // View registered events
+      viewMyEvents: (user) => {
+        const registeredEvents = mockData.events.filter(event => 
+          user.registeredEvents && user.registeredEvents.includes(event.id)
+        );
+        
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = components.header(user) + components.eventList(registeredEvents, user, "My Registered Events");
+        
+        // Initialize icons
+        lucide.createIcons();
+      },
+      
+      // Initialize event filtering and search
+      initEventFiltering: (user) => {
+        const categoryFilter = document.getElementById('category-filter');
+        const searchInput = document.getElementById('search-events');
+        
+        const filterEvents = () => {
+          const category = categoryFilter.value;
+          const searchTerm = searchInput.value.toLowerCase();
+          
+          const filteredEvents = mockData.events.filter(event => {
+            const matchesCategory = category === 'all' || event.category === category;
+            const matchesSearch = event.title.toLowerCase().includes(searchTerm) || 
+                                 event.description.toLowerCase().includes(searchTerm);
+            return matchesCategory && matchesSearch;
+          });
+          
+          const eventListContainer = document.querySelector('.grid');
+          if (eventListContainer) {
+            const registeredEvents = user.registeredEvents || [];
+            eventListContainer.innerHTML = filteredEvents.map(event => {
+              const isRegistered = registeredEvents.includes(event.id);
+              return components.eventCard(event, user, isRegistered);
+            }).join('');
+            
+            // Re-initialize icons after updating DOM
+            lucide.createIcons();
+          }
+        };
+        
+        categoryFilter.addEventListener('change', filterEvents);
+        searchInput.addEventListener('input', utils.debounce(filterEvents, 300));
+      }
+    };
+
+    // Faculty-specific functions
+    const faculty = {
+      // View events with management options
+      viewEvents: (user) => {
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = components.header(user) + components.eventList(mockData.events, user);
+        
+        // Initialize event filtering
+        student.initEventFiltering(user);
+        
+        // Initialize icons
+        lucide.createIcons();
+      },
+      
+      // Create event form
+      createEvent: (user) => {
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = components.header(user) + `
+          <div class="max-w-3xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New Event</h2>
+            <form id="create-event-form" class="bg-white shadow-md rounded-lg p-6">
+              <div class="grid grid-cols-1 gap-6">
+                <div>
+                  <label for="event-title" class="block text-sm font-medium text-gray-700">Event Title</label>
+                  <input type="text" id="event-title" name="title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="event-date" class="block text-sm font-medium text-gray-700">Date</label>
+                    <input type="date" id="event-date" name="date" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                  
+                  <div>
+                    <label for="event-time" class="block text-sm font-medium text-gray-700">Time</label>
+                    <input type="time" id="event-time" name="time" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="event-location" class="block text-sm font-medium text-gray-700">Location</label>
+                  <input type="text" id="event-location" name="location" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                  <label for="event-description" class="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea id="event-description" name="description" rows="4" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label for="event-category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select id="event-category" name="category" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">Select a category</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Career">Career</option>
+                      <option value="Music">Music</option>
+                      <option value="Workshop">Workshop</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Environment">Environment</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label for="event-capacity" class="block text-sm font-medium text-gray-700">Capacity</label>
+                    <input type="number" id="event-capacity" name="capacity" min="1" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="event-image" class="block text-sm font-medium text-gray-700">Image URL</label>
+                  <input type="url" id="event-image" name="image" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+              </div>
+              
+              <div class="mt-6 flex justify-end">
+                <button type="button" onclick="student.viewEvents(currentUser)" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  Cancel
+                </button>
+                <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  Create Event
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+        
+        // Add form submission handler
+        document.getElementById('create-event-form').addEventListener('submit', faculty.handleCreateEvent);
+        
+        // Initialize icons
+        lucide.createIcons();
+      },
+      
+      // Handle event creation
+      handleCreateEvent: (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newEvent = {
+          id: mockData.events.length + 1,
+          title: formData.get('title'),
+          date: formData.get('date'),
+          time: formData.get('time'),
+          location: formData.get('location'),
+          description: formData.get('description'),
+          category: formData.get('category'),
+          organizer: currentUser.name,
+          capacity: parseInt(formData.get('capacity')),
+          registered: 0,
+          image: formData.get('image') || 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1412&q=80'
+        };
+        
+        mockData.events.push(newEvent);
+        showToast('Event created successfully!', 'success');
+        student.viewEvents(currentUser);
+      }
+    };
+
+    // Admin-specific functions
+    const admin = {
+      // Admin dashboard
+      viewDashboard: (user) => {
+        const totalEvents = mockData.events.length;
+        const totalRegistrations = mockData.events.reduce((sum, event) => sum + event.registered, 0);
+        const avgAttendance = totalEvents > 0 ? (totalRegistrations / totalEvents).toFixed(1) : 0;
+        
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = components.header(user) + `
+          <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Admin Dashboard</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                      <i data-lucide="calendar" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Events</dt>
+                        <dd class="text-lg font-medium text-gray-900">${totalEvents}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                      <i data-lucide="users" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Registrations</dt>
+                        <dd class="text-lg font-medium text-gray-900">${totalRegistrations}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                      <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Avg. Attendance</dt>
+                        <dd class="text-lg font-medium text-gray-900">${avgAttendance}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-white shadow overflow-hidden sm:rounded-md">
+              <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Event Management</h3>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500">Manage all campus events</p>
+              </div>
+              <ul class="divide-y divide-gray-200">
+                ${mockData.events.map(event => `
+                  <li>
+                    <div class="px-4 py-4 flex items-center justify-between sm:px-6">
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 h-12 w-12 bg-cover bg-center rounded-md" style="background-image: url('${event.image}')"></div>
+                        <div class="ml-4">
+                          <div class="text-sm font-medium text-gray-900">${event.title}</div>
+                          <div class="text-sm text-gray-500">${event.organizer} • ${utils.formatDate(event.date)}</div>
+                        </div>
+                      </div>
+                      <div class="flex items-center space-x-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${event.registered >= event.capacity ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                          ${event.registered}/${event.capacity}
+                        </span>
+                        <button class="text-red-600 hover:text-red-900" onclick="admin.deleteEvent(${event.id})">
+                          <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          </div>
+        `;
+        
+        // Initialize icons
+        lucide.createIcons();
+      },
+      
+      // Delete event
+      deleteEvent: (eventId) => {
+        if (confirm('Are you sure you want to delete this event?')) {
+          const eventIndex = mockData.events.findIndex(event => event.id === eventId);
+          if (eventIndex !== -1) {
+            mockData.events.splice(eventIndex, 1);
+            showToast('Event deleted successfully', 'success');
+            admin.viewDashboard(currentUser);
+          }
+        }
+      }
+    };
+
+    // Global variables
+    let currentUser = null;
+
+    // Check if user is already logged in
+    document.addEventListener('DOMContentLoaded', function() {
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        showDashboard(currentUser.role);
+      } else {
+        showLoginPage();
+      }
+    });
+
+    // Show login page
+    function showLoginPage() {
+      document.getElementById('login-page').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+
+    // Show dashboard based on role
+    function showDashboard(role) {
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      
+      currentUser = JSON.parse(localStorage.getItem('currentUser'));
+      
+      // Initialize the application based on user role
+      initializeApp();
+    }
+
+    // Initialize the application
+    function initializeApp() {
+      // Set up navigation
+      document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-nav]')) {
+          e.preventDefault();
+          const page = e.target.getAttribute('data-nav');
+          navigateTo(page);
+        }
+      });
+      
+      // Start with events page
+      navigateTo('events');
+    }
+
+    // Navigation function
+    function navigateTo(page) {
+      switch(page) {
+        case 'events':
+          if (currentUser.role === 'student') {
+            student.viewEvents(currentUser);
+          } else if (currentUser.role === 'faculty') {
+            faculty.viewEvents(currentUser);
+          } else if (currentUser.role === 'admin') {
+            student.viewEvents(currentUser);
+          }
+          break;
+        case 'my-events':
+          if (currentUser.role === 'student') {
+            student.viewMyEvents(currentUser);
+          } else if (currentUser.role === 'faculty') {
+            // Faculty might see events they organized
+            student.viewMyEvents(currentUser);
+          }
+          break;
+        case 'create-event':
+          if (currentUser.role === 'faculty' || currentUser.role === 'admin') {
+            faculty.createEvent(currentUser);
+          }
+          break;
+        case 'admin':
+          if (currentUser.role === 'admin') {
+            admin.viewDashboard(currentUser);
+          }
+          break;
+        default:
+          if (currentUser.role === 'student') {
+            student.viewEvents(currentUser);
+          } else if (currentUser.role === 'faculty') {
+            faculty.viewEvents(currentUser);
+          } else if (currentUser.role === 'admin') {
+            admin.viewDashboard(currentUser);
+          }
+      }
+    }
+
+    // Event registration function
+    function registerEvent(eventId) {
+      if (!currentUser.registeredEvents) {
+        currentUser.registeredEvents = [];
+      }
+      
+      if (!currentUser.registeredEvents.includes(eventId)) {
+        currentUser.registeredEvents.push(eventId);
+        
+        // Update event registration count
+        const event = mockData.events.find(e => e.id === eventId);
+        if (event) {
+          event.registered++;
+        }
+        
+        // Update localStorage
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        
+        showToast('Successfully registered for the event!', 'success');
+        
+        // Refresh the current view
+        if (document.querySelector('[data-nav="my-events"]')) {
+          navigateTo('my-events');
+        } else {
+          navigateTo('events');
+        }
+      }
+    }
+
+    // Event unregistration function
+    function unregisterEvent(eventId) {
+      if (currentUser.registeredEvents) {
+        const eventIndex = currentUser.registeredEvents.indexOf(eventId);
+        if (eventIndex !== -1) {
+          currentUser.registeredEvents.splice(eventIndex, 1);
+          
+          // Update event registration count
+          const event = mockData.events.find(e => e.id === eventId);
+          if (event) {
+            event.registered--;
+          }
+          
+          // Update localStorage
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          
+          showToast('Successfully unregistered from the event', 'success');
+          
+          // Refresh the current view
+          if (document.querySelector('[data-nav="my-events"]')) {
+            navigateTo('my-events');
+          } else {
+            navigateTo('events');
+          }
+        }
+      }
+    }
+
+    // Toast notification system
+    function showToast(message, type = 'info') {
+      const toastContainer = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      
+      // Set icon based on type
+      let icon = 'info';
+      if (type === 'success') icon = 'check-circle';
+      if (type === 'error') icon = 'alert-circle';
+      
+      toast.innerHTML = `
+        <i data-lucide="${icon}"></i>
+        <span>${message}</span>
+      `;
+      
+      toastContainer.appendChild(toast);
+      
+      // Initialize Lucide icons
+      lucide.createIcons();
+      
+      // Remove toast after 5 seconds
+      setTimeout(() => {
+        toast.remove();
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
